@@ -1,8 +1,15 @@
 
 import streamlit as st
 import pandas as pd
-import joblib
+import importlib.util
 from pathlib import Path
+
+# Check whether joblib is installed
+if importlib.util.find_spec("joblib") is None:
+    st.error("joblib is missing from the deployed Python environment.")
+    st.stop()
+
+import joblib
 
 # ==========================================
 # PAGE CONFIGURATION
@@ -12,6 +19,7 @@ st.set_page_config(
     page_icon="❤️",
     layout="wide"
 )
+
 
 BASE_DIR = Path(__file__).parent
 
