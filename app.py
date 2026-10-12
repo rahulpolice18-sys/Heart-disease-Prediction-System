@@ -1,15 +1,9 @@
 
 import streamlit as st
 import pandas as pd
-import importlib.util
-from pathlib import Path
-
-# Check whether joblib is installed
-if importlib.util.find_spec("joblib") is None:
-    st.error("joblib is missing from the deployed Python environment.")
-    st.stop()
-
 import joblib
+from pathlib import Path
+import traceback
 
 # ==========================================
 # PAGE CONFIGURATION
@@ -20,8 +14,8 @@ st.set_page_config(
     layout="wide"
 )
 
-
 BASE_DIR = Path(__file__).parent
+
 
 # ==========================================
 # LIGHT THEME
@@ -43,12 +37,10 @@ header[data-testid="stHeader"] {
     padding-bottom: 3rem;
 }
 
-/* Headings */
 h1, h2, h3 {
     color: #153E75 !important;
 }
 
-/* All labels and normal text */
 .stApp p,
 .stApp label,
 .stApp [data-testid="stWidgetLabel"] p,
@@ -56,14 +48,12 @@ h1, h2, h3 {
     color: #243247 !important;
 }
 
-/* Hero description */
 .hero-description {
     color: #43566E !important;
     font-size: 16px;
     line-height: 1.8;
 }
 
-/* Form card */
 div[data-testid="stForm"] {
     background-color: #FFFFFF !important;
     border: 1px solid #D6E2F0;
@@ -71,14 +61,12 @@ div[data-testid="stForm"] {
     padding: 24px;
 }
 
-/* Input labels */
 div[data-testid="stWidgetLabel"] p {
     color: #243247 !important;
     font-size: 15px !important;
     font-weight: 600 !important;
 }
 
-/* Dropdown controls */
 div[data-baseweb="select"] > div {
     background-color: #FFFFFF !important;
     border: 1px solid #CBD5E1 !important;
@@ -90,7 +78,6 @@ div[data-baseweb="select"] input {
     color: #243247 !important;
 }
 
-/* Dropdown menus */
 div[data-baseweb="popover"],
 div[data-baseweb="menu"],
 ul[role="listbox"] {
@@ -101,20 +88,17 @@ li[role="option"] {
     color: #243247 !important;
 }
 
-/* Number inputs */
 div[data-testid="stNumberInput"] input {
     background-color: #FFFFFF !important;
     color: #243247 !important;
     border: 1px solid #CBD5E1 !important;
 }
 
-/* Sliders */
 div[data-testid="stSlider"] label,
 div[data-testid="stSlider"] [data-testid="stMarkdownContainer"] {
     color: #243247 !important;
 }
 
-/* Submit button */
 div[data-testid="stFormSubmitButton"] > button {
     background-color: #1769AA !important;
     color: #FFFFFF !important;
@@ -129,12 +113,10 @@ div[data-testid="stFormSubmitButton"] > button:hover {
     color: #FFFFFF !important;
 }
 
-/* Alerts */
 div[data-testid="stAlert"] {
     border-radius: 10px;
 }
 
-/* Footer */
 footer {
     visibility: hidden;
 }
@@ -147,22 +129,82 @@ footer {
 # ==========================================
 @st.cache_resource
 def load_components():
-    model = joblib.load(BASE_DIR / "heart_model.pkl")
-    scaler = joblib.load(BASE_DIR / "scaler.pkl")
-    selector = joblib.load(BASE_DIR / "selector.pkl")
+
+    model_path = BASE_DIR / "heart_model.pkl"
+    scaler_path = BASE_DIR / "scaler.pkl"
+    selector_path = BASE_DIR / "selector.pkl"
+
+    # Check that all model files exist
+    required_files = [
+        model_path,
+        scaler_path,
+        selector_path
+    ]
+
+    for file_path in required_files:
+        if not file_path.is_file():
+            raise FileNotFoundError(
+                f"Missing file: {file_path.name}. "
+                f"Expected location: {file_path}"
+            )
+
+        if file_path.stat().st_size == 0:
+            raise ValueError(
+                f"{file_path.name} is empty."
+            )
+
+    # Load the model
+    try:
+        model = joblib.load(model_path)
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load {model_path.name}. "
+            f"Error type: {type(e).__name__}. "
+            f"Details: {repr(e)}"
+        ) from e
+
+    # Load the scaler
+    try:
+        scaler = joblib.load(scaler_path)
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load {scaler_path.name}. "
+            f"Error type: {type(e).__name__}. "
+            f"Details: {repr(e)}"
+        ) from e
+
+    # Load the feature selector
+    try:
+        selector = joblib.load(selector_path)
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load {selector_path.name}. "
+            f"Error type: {type(e).__name__}. "
+            f"Details: {repr(e)}"
+        ) from e
+
     return model, scaler, selector
 
 
 try:
     model, scaler, selector = load_components()
+
 except Exception as e:
-    st.error(f"Unable to load model files: {e}")
+    st.error("Unable to load model files.")
+
+    st.code(
+        f"Error type: {type(e).__name__}\n"
+        f"Error details: {repr(e)}"
+    )
+
+    st.info(
+        "Check the exact error above. It identifies whether "
+        "a file is missing, inaccessible, or incompatible "
+        "with the installed Python libraries."
+    )
+
     st.stop()
 
-
-# ==========================================
-# HERO SECTION
-# ==========================================
 
 # ==========================================
 # HERO SECTION
@@ -173,12 +215,14 @@ hero_text, hero_image = st.columns(
 )
 
 with hero_text:
+
     st.markdown(
         """
         <h1 style="
             color: #153E75;
             font-size: 36px;
             font-weight: 750;
+            line-height: 1.3;
         ">
             ❤️ Heart Disease Prediction
         </h1>
@@ -187,28 +231,32 @@ with hero_text:
     )
 
     st.write(
-        "Your heart continuously pumps blood, supplying oxygen "
-        "and essential nutrients throughout your body."
+        "Your heart continuously pumps blood, supplying "
+        "oxygen and essential nutrients throughout your body."
     )
 
     st.write(
-        "Maintaining heart health through healthy habits and "
-        "regular medical checkups can help reduce cardiovascular risks."
+        "Maintaining heart health through healthy habits "
+        "and regular medical checkups can help reduce "
+        "cardiovascular risks."
     )
 
 with hero_image:
-    image_path = Path(__file__).parent / "heart_banner.png"
 
-    if image_path.exists():
+    image_path = BASE_DIR / "heart_banner.png"
+
+    if image_path.is_file():
         st.image(
             str(image_path),
             use_container_width=True
         )
     else:
-        st.info("Upload heart_banner.png to your GitHub repository.")
+        st.warning(
+            "Heart image not found. Upload "
+            "heart_banner.png to the same folder as app.py."
+        )
 
 st.divider()
-
 
 
 # ==========================================
@@ -223,8 +271,8 @@ st.write(
 
 
 # ==========================================
-# DROPDOWN LABELS
-# Verify these encodings against your training dataset.
+# DROPDOWN OPTIONS
+# Verify encodings against your training dataset.
 # ==========================================
 chest_pain_options = {
     "Typical angina (0)": 0,
@@ -261,6 +309,7 @@ with st.form("heart_prediction_form"):
     col1, col2, col3 = st.columns(3)
 
     with col1:
+
         age = st.slider(
             "Age",
             min_value=20,
@@ -293,6 +342,7 @@ with st.form("heart_prediction_form"):
         )
 
     with col2:
+
         fbs_label = st.selectbox(
             "Fasting Blood Sugar >120 mg/dl",
             ["No (0)", "Yes (1)"]
@@ -316,6 +366,7 @@ with st.form("heart_prediction_form"):
         )
 
     with col3:
+
         oldpeak = st.slider(
             "Oldpeak",
             min_value=0.0,
@@ -350,65 +401,103 @@ with st.form("heart_prediction_form"):
 # ==========================================
 if submitted:
 
-    # Convert display labels to numeric values
+    # Convert displayed labels to numeric values
     sex = 1 if sex_label.startswith("Male") else 0
+
     cp = chest_pain_options[cp_label]
+
     fbs = 1 if fbs_label.startswith("Yes") else 0
+
     restecg = restecg_options[restecg_label]
+
     exang = 1 if exang_label.startswith("Yes") else 0
+
     slope = slope_options[slope_label]
+
     thal = thal_options[thal_label]
 
-    # Preserve the original 13 input features and their order
+    # Preserve the original 13 input features and order
     columns = [
-        "age", "sex", "cp", "trestbps", "chol", "fbs",
-        "restecg", "thalach", "exang", "oldpeak",
-        "slope", "ca", "thal"
+        "age",
+        "sex",
+        "cp",
+        "trestbps",
+        "chol",
+        "fbs",
+        "restecg",
+        "thalach",
+        "exang",
+        "oldpeak",
+        "slope",
+        "ca",
+        "thal"
     ]
 
     input_data = pd.DataFrame(
         [[
-            age, sex, cp, trestbps, chol, fbs,
-            restecg, thalach, exang, oldpeak,
-            slope, ca, thal
+            age,
+            sex,
+            cp,
+            trestbps,
+            chol,
+            fbs,
+            restecg,
+            thalach,
+            exang,
+            oldpeak,
+            slope,
+            ca,
+            thal
         ]],
         columns=columns
     )
 
     try:
-        # Step 1: Select features
+        # Step 1: Apply feature selection
         input_selected = selector.transform(input_data)
 
-        # Step 2: Scale the selected features
+        # Step 2: Apply scaling
         input_scaled = scaler.transform(input_selected)
 
-        # Step 3: Predict
+        # Step 3: Generate prediction
         prediction = model.predict(input_scaled)
 
         st.divider()
         st.markdown("## Prediction Result")
 
         if prediction[0] == 1:
+
             st.error(
                 "Potential Heart Disease Risk Detected. "
                 "Please consult a qualified healthcare professional."
             )
+
         else:
+
             st.success(
                 "The model did not identify a positive "
                 "heart disease result for these inputs."
             )
 
         st.caption(
-            "For educational purposes only. This is not a medical "
-            "diagnosis and does not replace professional evaluation."
+            "For educational purposes only. This prediction "
+            "is not a medical diagnosis and does not replace "
+            "professional medical evaluation."
         )
 
     except Exception as e:
-        st.error(f"Prediction failed: {e}")
+
+        st.error("Prediction failed.")
+
+        st.code(
+            f"Error type: {type(e).__name__}\n"
+            f"Error details: {repr(e)}"
+        )
+
         st.info(
-            "Check the feature selection, scaling order, and feature "
-            "names against the original model training pipeline."
+            "The input features, feature selector, scaler, "
+            "and model must follow the same preprocessing "
+            "order and feature encoding used during training."
         )
 
 
@@ -417,13 +506,16 @@ if submitted:
 # ==========================================
 st.divider()
 
-st.markdown("""
-<div style="
-    text-align: center;
-    color: #64748B;
-    padding: 10px;
-    font-size: 13px;
-">
-    Heart Disease Prediction | Machine Learning Project
-</div>
-""", unsafe_allow_html=True)
+st.markdown(
+    """
+    <div style="
+        text-align: center;
+        color: #64748B;
+        padding: 10px;
+        font-size: 13px;
+    ">
+        Heart Disease Prediction | Machine Learning Project
+    </div>
+    """,
+    unsafe_allow_html=True
+)
